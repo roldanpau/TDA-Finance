@@ -12,9 +12,9 @@ one_d <-function(data, embed_dim = 4)
 pre_process <- function(data, scaling_method)
 {
   tmp <- data
-  if (scaling_method == "log") {
-    tmp <- log(tmp)
-  }
+  #if (scaling_method == "log") {
+    #tmp <- log(tmp)
+  #}
   
   if (scaling_method == "max") {
     for (i in 1: ncol(tmp)) {
@@ -75,16 +75,21 @@ nd_diag <- function(time, max_scale = 0.1, K_max = 10, window = 100)
   spot <- seq(from=1, to=(total-window+1), by=step)
   
   #Persistence diagrams
+  print("Computing persistence diagrams...")
+  pb <- txtProgressBar(min = 0, max = length(spot), style = 3)
   for(i in 1:length(spot)){
     Diags1.rips.ls[[i]] = 
       ripsDiag(tmp[spot[i]:(spot[i]+window-1), ], maxdimension=1, max_scale, library = "Dionysus")
+    
+    # update progress bar
+    setTxtProgressBar(pb,i)
   }
   #plot(Diags1.rips.ls[[i]]$diagram)
   return(Diags1.rips.ls)
 }
 
 #Takes the diagrams from nd_diag and calculates the norm
-nd_norm <- function(diag, max_scale, K_max = 10){
+nd_norm <- function(diag, max_scale, K_max = 10, scaling_method = "log"){
   step <- 1
   spot <- seq(from =1, to = length(diag), by = step)
   
@@ -95,16 +100,51 @@ nd_norm <- function(diag, max_scale, K_max = 10){
   AUC_Land.m = matrix(0,length(spot),K_max) #collects values of lambda_k at particular date i per k 
   AUC_Land.v = vector(length=length(spot)) #collects values of L^1 at particular date
   #Compute L^1
+  print("Computing the L1 norm of persistence landscapes...")
+  pb <- txtProgressBar(min = 0, max = length(spot), style = 3)
   for (i in 1:length(spot)){
+    diagram <- diag[[i]]$diagram
     
-    ###### PR (2018-12-16): This is my SUGGESTED way to compute tseq.
-    tseq <- seq(min(diag[[i]]$diagram[,2:3]), max(diag[[i]]$diagram[,2:3]), length=500)
-    
-    for (KK in 1:K_max){
-      Lands1.ls[[i]]=landscape(diag[[i]]$diagram, dimension=1, KK, tseq)
-      AUC_Land.m[i,KK]=  pk.calc.auc.all(Lands1.ls[[i]],tseq)
-      AUC_Land.v[i]= AUC_Land.v[i]+AUC_Land.m[i,KK]
+    #print(diagram)
+    # Look at persistence diagrams on a logarithmic scale
+    if(scaling_method=="log") {
+      # Only take logarithm of nonzero entries
+      for(j in 1:nrow(diagram)) {
+        if(diagram[j,1]==1) {
+          diagram[j,2] = log(diagram[j,2])
+          diagram[j,3] = log(diagram[j,3])
+        }
+      }
     }
+    
+    minim=Inf
+    maxim=-Inf
+    for(j in 1:nrow(diagram)) {
+      if(diagram[j,1]==1) {
+        minim = min(minim,diagram[j,2])
+        maxim = max(maxim,diagram[j,3])
+      }
+    }
+    #print(minim)
+    #print(maxim)
+    
+    if(minim==Inf)  # There is no 1-dimensional homology feature in this window
+    {
+      AUC_Land.v[i]=0
+    }
+    else 
+    {
+      tseq <- seq(minim, maxim, length=500)
+      
+      for (KK in 1:K_max){
+        Lands1.ls[[i]]=landscape(diagram, dimension=1, KK, tseq)
+        #print(head(Lands1.ls[[i]]))
+        AUC_Land.m[i,KK]=  pk.calc.auc.all(Lands1.ls[[i]],tseq, interval=c(minim,maxim))
+        AUC_Land.v[i]= AUC_Land.v[i]+AUC_Land.m[i,KK]
+      }
+    }
+    # update progress bar
+    setTxtProgressBar(pb,i)
   }
   return(AUC_Land.v)
 }
@@ -128,7 +168,7 @@ analyze_nd <- function(time, scaling_method = "log", returns = FALSE, max_scale 
     max_scale <- find_diam(data)
   }
   diag <- nd_diag(data, max_scale, K_max, window)
-  norm <- nd_norm(diag, max_scale, K_max)
+  norm <- nd_norm(diag, max_scale, K_max, scaling_method)
   new_dates <- tail(dates, length(norm))
   norm.xts <- xts(norm, order.by = new_dates)
   
@@ -138,7 +178,7 @@ analyze_nd <- function(time, scaling_method = "log", returns = FALSE, max_scale 
 
 #End line method - takes one-D time series 
 #finds delay embedding, calls analyze_nd
-analyze_1d <- function(time, dim = 4, scaling_method = "log", returns = FALSE, max_scale = 0, K_max = 10, window = 50) {
+analyze_1d <- function(time, dim = 4, scaling_method = "log", max_scale = 0, K_max = 10, window = 50, returns = FALSE) {
   if (returns) {
     #Taking log-returns of the log of the data can lead to errors, 
     #so if returns are desired, we deactivate the log scaling
@@ -155,7 +195,7 @@ analyze_1d <- function(time, dim = 4, scaling_method = "log", returns = FALSE, m
   analyze_nd(delay_data.xts, scaling_method, returns = FALSE,  max_scale, K_max, window)
 }
 
-output <- function(values, filename , plot = "FALSE") 
+output <- function(tmp, filename , plot = "FALSE") 
 {
   write.zoo(tmp, file = filename)
   if (plot == "TRUE") {
