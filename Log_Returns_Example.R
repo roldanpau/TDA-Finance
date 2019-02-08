@@ -22,15 +22,15 @@ data <- `BTCUSD=X`[,1]
 #   using the find_diam function.
 # - K_max = 10
 # - window = 50
-# - returns = FALSE means that we will NOT take log-returns of the price 
+# - returns = TRUE means that we will take log-returns of the price 
 #   time series before processing it through the TDA pipeline.
 #   Note that when returns = TRUE, the scaling parameter has no effect.
 #
 #Thus, this is equivalent to: 
 # norm_data <- 
 # analyze_1d(data, dim=4, scaling_method="log", max_scale=0, 
-# K_max=10, window=50, returns = FALSE)
-norm_data <- analyze_1d(data)
+# K_max=10, window=50, returns = TRUE)
+norm_data <- analyze_1d(data, returns = TRUE)
 
 #Here we plot the norm
 plot(norm_data, type = 'l')

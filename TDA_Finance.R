@@ -152,7 +152,8 @@ nd_norm <- function(diag, max_scale, K_max = 10, scaling_method = "log"){
 #End line method - takes multi-D time series, processes, 
 #and finds the norm
 #Default max_scale of 0 leads to find_diam being called
-analyze_nd <- function(time, scaling_method = "log", returns = FALSE, max_scale = 0, K_max = 10, window = 50) {
+analyze_nd <- function(time, scaling_method = "log", returns = FALSE, 
+                       max_scale = 0, K_max = 10, window = 50) {
   dates <- index(time)
   if (returns) {
     #Taking log-returns of the log of the data can lead to errors, 
