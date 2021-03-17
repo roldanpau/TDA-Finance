@@ -5,7 +5,7 @@ source("TDA_Finance.R")
 
 # Load required packages
 library(quantmod)   # for getSymbols
-library(TDA)        # for ripsDiag
+library(TDA)        # for ripsDiag and landscape
 library(PKNCA)      # for pk.calc.auc.all
 
 #import an one dimension time series as an xts object. 
